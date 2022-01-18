@@ -582,10 +582,12 @@ start_workers_from_dblist(void)
 	PushActiveSnapshot(GetTransactionSnapshot());
 	ret = SPI_connect();
 	if (ret != SPI_OK_CONNECT)
-		ereport(ERROR, (errmsg("[diskquota launcher] SPI connect error, errno:%d", errno)));
+		ereport(ERROR, (errmsg("[diskquota launcher] SPI connect error, errno: %d", errno)));
 	ret = SPI_execute("select dbid from diskquota_namespace.database_list;", true, 0);
 	if (ret != SPI_OK_SELECT)
-		ereport(ERROR, (errmsg("select diskquota_namespace.database_list")));
+        ereport(ERROR, (errmsg(
+                        "[diskquota launcher] 'select diskquota_namespace.database_list' returns error: %d",
+                        errno)));
 	tupdesc = SPI_tuptable->tupdesc;
 	if (tupdesc->natts != 1 || tupdesc->attrs[0]->atttypid != OIDOID)
 		ereport(ERROR, (errmsg("[diskquota launcher] table database_list corrupt, laucher will exit")));
