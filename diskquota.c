@@ -359,7 +359,8 @@ disk_quota_worker_main(Datum main_arg)
 		 */
 		rc = WaitLatch(&MyProc->procLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
-					   diskquota_naptime * 1000L);
+					   // be nice to scheduler when naptime == 0 and diskquota_is_paused() == true
+					   diskquota_naptime == 0 ? 1:  diskquota_naptime * 1000L);
 		ResetLatch(&MyProc->procLatch);
 
 		/* Emergency bailout if postmaster has died */
@@ -376,6 +377,7 @@ disk_quota_worker_main(Datum main_arg)
 		/* Do the work */
 		if (!diskquota_is_paused())
 			refresh_disk_quota_model(false);
+
 		worker_increase_epoch(MyDatabaseId);
 	}
 
