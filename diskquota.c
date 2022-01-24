@@ -459,7 +459,8 @@ disk_quota_launcher_main(Datum main_arg)
 		 */
 		rc = WaitLatch(&MyProc->procLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
-					   diskquota_naptime * 1000L);
+					   // wait at least one time slice, avoid 100% CPU usage
+					   diskquota_naptime == 0 ? 1 : diskquota_naptime * 1000L);
 		ResetLatch(&MyProc->procLatch);
 
 		/* Emergency bailout if postmaster has died */
