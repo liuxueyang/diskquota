@@ -266,8 +266,8 @@ diskquota_start_worker(PG_FUNCTION_ARGS)
 				break;
 			ResetLatch(&MyProc->procLatch);
 
-			ereportif(ERROR,
-					kill(launcher_pid, 0) == -1 && errno == ESRCH, // do existence check
+			ereportif(kill(launcher_pid, 0) == -1 && errno == ESRCH, // do existence check
+					ERROR,
 					(errmsg("[diskquota] diskquotal launcher pid = %d no longer exist", launcher_pid)));
 
 			LWLockAcquire(diskquota_locks.extension_ddl_message_lock, LW_SHARED);
@@ -527,8 +527,8 @@ dq_object_access_hook(ObjectAccessType access, Oid classId,
 				break;
 			ResetLatch(&MyProc->procLatch);
 
-			ereportif(ERROR,
-					kill(launcher_pid, 0) == -1 && errno == ESRCH, // do existence check
+			ereportif(kill(launcher_pid, 0) == -1 && errno == ESRCH, // do existence check
+					ERROR,
 					(errmsg("[diskquota] diskquotal launcher pid = %d no longer exist", launcher_pid)));
 
 			LWLockAcquire(diskquota_locks.extension_ddl_message_lock, LW_SHARED);
