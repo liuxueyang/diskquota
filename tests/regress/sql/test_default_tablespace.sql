@@ -4,8 +4,8 @@
 -- end_ignore
 
 DROP TABLE if EXISTS t;
+SELECT diskquota.set_role_tablespace_quota(CURRENT_ROLE, 'pg_default', '1 MB');
 CREATE TABLE t (i int);
-SELECT diskquota.set_role_tablespace_quota('gpadmin', 'pg_default', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to fail
 INSERT INTO t SELECT generate_series(1, 1000000);
@@ -18,7 +18,7 @@ CREATE DATABASE db_with_tablespace TABLESPACE custom_tablespace;
 CREATE EXTENSION diskquota;
 SELECT diskquota.enable_hardlimit();
 
-SELECT diskquota.set_role_tablespace_quota(current_role, 'custom_tablespace', '1MB');
+SELECT diskquota.set_role_tablespace_quota(CURRENT_ROLE, 'custom_tablespace', '1MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect create table to fail
 CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 1000000);

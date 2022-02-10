@@ -4,15 +4,15 @@
 -- end_ignore
 DROP TABLE if EXISTS t;
 NOTICE:  table "t" does not exist, skipping
-CREATE TABLE t (i int);
-NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'i' as the Greenplum Database data distribution key for this table.
-HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-SELECT diskquota.set_role_tablespace_quota('gpadmin', 'pg_default', '1 MB');
+SELECT diskquota.set_role_tablespace_quota(CURRENT_ROLE, 'pg_default', '1 MB');
  set_role_tablespace_quota 
 ---------------------------
  
 (1 row)
 
+CREATE TABLE t (i int);
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'i' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 SELECT diskquota.wait_for_worker_new_epoch();
  wait_for_worker_new_epoch 
 ---------------------------
@@ -34,7 +34,7 @@ SELECT diskquota.enable_hardlimit();
  
 (1 row)
 
-SELECT diskquota.set_role_tablespace_quota(current_role, 'custom_tablespace', '1MB');
+SELECT diskquota.set_role_tablespace_quota(CURRENT_ROLE, 'custom_tablespace', '1MB');
  set_role_tablespace_quota 
 ---------------------------
  
@@ -50,7 +50,7 @@ SELECT diskquota.wait_for_worker_new_epoch();
 CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 1000000);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'generate_series' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-ERROR:  tablespace:62064 role:10 diskquota exceeded  (seg2 127.0.0.1:6004 pid=3741)
+ERROR:  tablespace:87174 role:10 diskquota exceeded  (seg1 127.0.0.1:6003 pid=14377)
 -- expect create table to succeed
 SELECT diskquota.wait_for_worker_new_epoch();
  wait_for_worker_new_epoch 
@@ -63,7 +63,7 @@ NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'ge
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 -- expect insert records to fail
 INSERT INTO t_in_custom_tablespace SELECT generate_series(1, 1000000);
-ERROR:  tablespace:62064 role:10 diskquota exceeded  (seg0 127.0.0.1:6002 pid=3742)
+ERROR:  tablespace:87174 role:10 diskquota exceeded  (seg0 127.0.0.1:6002 pid=14379)
 -- clean up
 DROP EXTENSION diskquota;
 DROP TABLE IF EXISTS t_in_custom_tablespace;

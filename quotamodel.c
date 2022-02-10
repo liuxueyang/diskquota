@@ -876,6 +876,10 @@ calculate_table_disk_usage(bool is_init, HTAB *local_active_table_stat_map)
 			relnamespace = relation_entry->namespaceoid;
 			relowner = relation_entry->owneroid;
 			reltablespace = relation_entry->rnode.node.spcNode;
+			if (!OidIsValid(reltablespace))
+			{
+				reltablespace = MyDatabaseTableSpace;
+			}
 			LWLockRelease(diskquota_locks.relation_cache_lock);
 		}
 
@@ -1937,6 +1941,10 @@ refresh_blackmap(PG_FUNCTION_ARGS)
 			{
 				Oid				relnamespace = relation_cache_entry->namespaceoid;
 				Oid				reltablespace = relation_cache_entry->rnode.node.spcNode;
+				if (!OidIsValid(reltablespace))
+				{
+					reltablespace = MyDatabaseTableSpace;
+				}
 				Oid				relowner = relation_cache_entry->owneroid;
 				BlackMapEntry	keyitem;
 				for (QuotaType type = 0; type < NUM_QUOTA_TYPES; ++type)
@@ -2140,7 +2148,8 @@ show_blackmap(PG_FUNCTION_ARGS)
 		values[3] = ObjectIdGetDatum(keyitem.tablespaceoid);
 		values[4] = BoolGetDatum(blackmap_entry->segexceeded);
 		values[5] = ObjectIdGetDatum(blocked_relfilenode.dbNode);
-		values[6] = ObjectIdGetDatum(blocked_relfilenode.spcNode);
+		values[6] = ObjectIdGetDatum(!OidIsValid(blocked_relfilenode.spcNode) ? MyDatabaseTableSpace :
+				blocked_relfilenode.spcNode);
 		values[7] = ObjectIdGetDatum(blocked_relfilenode.relNode);
 		values[8] = Int32GetDatum(GpIdentity.segindex);
 

@@ -250,6 +250,7 @@ remove_committed_relation_from_cache(void)
 	DiskQuotaRelationCacheEntry *local_entry = NULL;
 	HTAB *local_relation_cache;
 	HASHCTL	ctl;
+	Oid reltablespace = InvalidOid;
 
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.keysize = sizeof(Oid);
@@ -280,7 +281,16 @@ remove_committed_relation_from_cache(void)
 		 * remains in relation_cache, the outdated relation_cache_entry should 
 		 * be removed.
 		 */
-		if (OidIsValid(RelidByRelfilenode(local_entry->rnode.node.spcNode, local_entry->rnode.node.relNode)))
+		if (!OidIsValid(local_entry->rnode.node.spcNode))
+		{
+			reltablespace = MyDatabaseTableSpace;
+		}
+		else
+		{
+			reltablespace = local_entry->rnode.node.spcNode;
+		}
+
+		if (OidIsValid(RelidByRelfilenode(reltablespace, local_entry->rnode.node.relNode)))
 		{
 			remove_cache_entry(InvalidOid, local_entry->rnode.node.relNode);
 		}
@@ -382,7 +392,7 @@ show_relation_cache(PG_FUNCTION_ARGS)
 		values[3] = ObjectIdGetDatum(entry->owneroid);
 		values[4] = ObjectIdGetDatum(entry->namespaceoid);
 		values[5] = Int32GetDatum(entry->rnode.backend);
-		values[6] = ObjectIdGetDatum(entry->rnode.node.spcNode);
+		values[6] = ObjectIdGetDatum(!OidIsValid(entry->rnode.node.spcNode) ? MyDatabaseTableSpace : entry->rnode.node.spcNode);
 		values[7] = ObjectIdGetDatum(entry->rnode.node.dbNode);
 		values[8] = ObjectIdGetDatum(entry->rnode.node.relNode);
 		values[9] = CharGetDatum(entry->relstorage);
