@@ -1,11 +1,13 @@
--- Test default tablespace
+-- test role_tablespace_quota works with tables/databases in default tablespace
+-- test role_tablespace_quota works with tables/databases in non-default tablespace with hard limits on
+
 -- start_ignore
 \! mkdir -p /tmp/custom_tablespace
 -- end_ignore
 
 DROP TABLE if EXISTS t;
 CREATE TABLE t (i int);
-SELECT diskquota.set_role_tablespace_quota('gpadmin', 'pg_default', '1 MB');
+SELECT diskquota.set_role_tablespace_quota(current_role, 'pg_default', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to fail
 INSERT INTO t SELECT generate_series(1, 1000000);
@@ -23,15 +25,10 @@ SELECT diskquota.wait_for_worker_new_epoch();
 -- expect create table to fail
 CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 1000000);
 
--- expect create table to succeed
-SELECT diskquota.wait_for_worker_new_epoch();
-CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 100);
--- expect insert records to fail
-INSERT INTO t_in_custom_tablespace SELECT generate_series(1, 1000000);
-
 -- clean up
-DROP EXTENSION diskquota;
 DROP TABLE IF EXISTS t_in_custom_tablespace;
+SELECT diskquota.disable_hardlimit();
+DROP EXTENSION IF EXISTS diskquota;
 \c postgres;
 DROP DATABASE IF EXISTS db_with_tablespace;
 DROP TABLESPACE IF EXISTS custom_tablespace;
