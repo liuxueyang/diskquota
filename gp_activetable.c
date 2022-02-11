@@ -712,8 +712,8 @@ get_active_tables_oid(void)
 		rnode.dbNode = active_table_file_entry->dbid;
 		rnode.relNode = active_table_file_entry->relfilenode;
 		rnode.spcNode = active_table_file_entry->tablespaceoid;
-		if (!OidIsValid(rnode.spcNode))
-			rnode.spcNode = MyDatabaseTableSpace;
+//		if (!OidIsValid(rnode.spcNode))
+//			rnode.spcNode = MyDatabaseTableSpace;
 		relOid = get_relid_by_relfilenode(rnode);
 
 		if (relOid != InvalidOid)

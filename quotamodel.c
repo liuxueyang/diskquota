@@ -1483,6 +1483,10 @@ check_blackmap_by_relfilenode(RelFileNode relfilenode)
 
 	memset(&keyitem, 0, sizeof(keyitem));
 	memcpy(&keyitem.relfilenode, &relfilenode, sizeof(RelFileNode));
+	if (!OidIsValid(keyitem.relfilenode.spcNode))
+	{
+		keyitem.relfilenode.spcNode = MyDatabaseTableSpace;
+	}
 
 	LWLockAcquire(diskquota_locks.black_map_lock, LW_SHARED);
 	entry = hash_search(disk_quota_black_map,
@@ -1522,7 +1526,9 @@ prepare_blackmap_search_key(BlackMapEntry *keyitem, QuotaType type,
 				 errmsg("[diskquota] unknown quota type: %d", type)));
 
 	if (type == ROLE_TABLESPACE_QUOTA || type == NAMESPACE_TABLESPACE_QUOTA)
-		keyitem->tablespaceoid = reltablespace;
+	{
+		keyitem->tablespaceoid = OidIsValid(reltablespace) ? reltablespace : MyDatabaseTableSpace;
+	}
 	else
 	{
 		/* refer to add_quota_to_blacklist */
@@ -1941,16 +1947,21 @@ refresh_blackmap(PG_FUNCTION_ARGS)
 			{
 				Oid				relnamespace = relation_cache_entry->namespaceoid;
 				Oid				reltablespace = relation_cache_entry->rnode.node.spcNode;
-				if (!OidIsValid(reltablespace))
-				{
-					reltablespace = MyDatabaseTableSpace;
-				}
+				Oid				reltablespace1;
 				Oid				relowner = relation_cache_entry->owneroid;
 				BlackMapEntry	keyitem;
 				for (QuotaType type = 0; type < NUM_QUOTA_TYPES; ++type)
 				{
+					if ((type == NAMESPACE_TABLESPACE_QUOTA || type == ROLE_TABLESPACE_QUOTA) && !OidIsValid(reltablespace))
+					{
+						reltablespace1 = MyDatabaseTableSpace;
+					}
+					else
+					{
+						reltablespace1 = reltablespace;
+					}
 					/* Check that if the current relation should be blocked. */
-					prepare_blackmap_search_key(&keyitem, type, relowner, relnamespace, reltablespace);
+					prepare_blackmap_search_key(&keyitem, type, relowner, relnamespace, reltablespace1);
 					blackmapentry = hash_search(local_blackmap, &keyitem, HASH_FIND, &found);
 
 					if (found && blackmapentry)
