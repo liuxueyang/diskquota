@@ -22,7 +22,7 @@ CREATE DATABASE db_with_tablespace TABLESPACE custom_tablespace;
 CREATE EXTENSION diskquota;
 SELECT diskquota.enable_hardlimit();
 
-SELECT diskquota.set_role_tablespace_quota(current_role, 'custom_tablespace', '1MB');
+SELECT diskquota.set_role_tablespace_quota(current_role, 'custom_tablespace', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 
 -- start_ignore
