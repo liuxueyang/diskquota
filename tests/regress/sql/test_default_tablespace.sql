@@ -5,6 +5,8 @@
 \! mkdir -p /tmp/custom_tablespace
 -- end_ignore
 
+SELECT diskquota.enable_hardlimit();
+
 DROP TABLE if EXISTS t;
 CREATE TABLE t (i int);
 SELECT diskquota.set_role_tablespace_quota(current_role, 'pg_default', '1 MB');
@@ -22,6 +24,11 @@ SELECT diskquota.enable_hardlimit();
 
 SELECT diskquota.set_role_tablespace_quota(current_role, 'custom_tablespace', '1MB');
 SELECT diskquota.wait_for_worker_new_epoch();
+
+-- start_ignore
+SELECT * from diskquota.blackmap;
+-- end_ignore
+
 -- expect create table to fail
 CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 1000000);
 
@@ -29,7 +36,9 @@ CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 1000000);
 DROP TABLE IF EXISTS t_in_custom_tablespace;
 SELECT diskquota.disable_hardlimit();
 DROP EXTENSION IF EXISTS diskquota;
-\c postgres;
+\c contrib_regression;
 DROP DATABASE IF EXISTS db_with_tablespace;
 DROP TABLESPACE IF EXISTS custom_tablespace;
 \! rm -rf /tmp/custom_tablespace
+
+SELECT diskquota.disable_hardlimit();
