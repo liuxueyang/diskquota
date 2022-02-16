@@ -45,7 +45,6 @@ DROP EXTENSION IF EXISTS diskquota;
 \c contrib_regression;
 DROP DATABASE IF EXISTS db_with_tablespace;
 DROP TABLESPACE IF EXISTS custom_tablespace;
-\! rm -rf /tmp/custom_tablespace
 
 RESET ROLE;
 DROP ROLE IF EXISTS role1;
