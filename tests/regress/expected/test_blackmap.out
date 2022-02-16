@@ -278,6 +278,5 @@ DROP TABLE blocked_t3;
 DROP TABLE blocked_t4;
 DROP TABLE blocked_t5;
 DROP TABLESPACE blocked_space;
-\! rm -rf /tmp/blocked_space
 SET search_path TO DEFAULT;
 DROP SCHEMA s_blackmap;
