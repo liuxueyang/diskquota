@@ -334,8 +334,10 @@ check_quota_map(QuotaType type)
 				Oid tablespaceoid = InvalidOid;
 
 				if (type == NAMESPACE_TABLESPACE_QUOTA || type == ROLE_TABLESPACE_QUOTA) {
-					// fix tablespaceoid for tablespace related quota.
-					// the default tablespace in syscache is InvalidOid, but actually it should be MyDatabaseTableSpace
+					/*
+					 * fix tablespaceoid for tablespace related quota.
+					 * the default tablespace in syscache is InvalidOid, but actually it should be MyDatabaseTableSpace
+					 */
 					tablespaceoid = entry->keys[1] == InvalidOid ? MyDatabaseTableSpace : entry->keys[1];
 				}
 

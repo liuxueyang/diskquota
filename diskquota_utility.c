@@ -1358,7 +1358,7 @@ diskquota_relation_open(Oid relid, LOCKMODE mode)
 	}
 	PG_END_TRY();
 
-	// fix tablespace oid if the tablespace oid is default table oid
+	/* fix tablespace oid if the tablespace oid is default table oid */
 	if (success_open && rel->rd_node.spcNode == InvalidOid)
 		rel->rd_node.spcNode = MyDatabaseTableSpace;
 
