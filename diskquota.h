@@ -106,7 +106,6 @@ typedef enum MessageResult MessageResult;
 
 extern DiskQuotaLocks diskquota_locks;
 extern ExtensionDDLMessage *extension_ddl_message;
-extern pg_atomic_uint32 *diskquota_hardlimit;
 
 typedef struct DiskQuotaWorkerEntry DiskQuotaWorkerEntry;
 
@@ -114,7 +113,6 @@ typedef struct DiskQuotaWorkerEntry DiskQuotaWorkerEntry;
 struct DiskQuotaWorkerEntry
 {
 	Oid			dbid;
-	pid_t		pid;			/* worker pid */
 	pg_atomic_uint32 epoch; 		/* this counter will be increased after each worker loop */
 	bool is_paused; 			/* true if this worker is paused */
 	BackgroundWorkerHandle *handle;
@@ -142,6 +140,7 @@ extern void init_disk_quota_hook(void);
 extern Datum diskquota_fetch_table_stat(PG_FUNCTION_ARGS);
 extern int	diskquota_naptime;
 extern int	diskquota_max_active_tables;
+extern bool	diskquota_hardlimit;
 
 extern int 	SEGCOUNT;
 extern int  get_ext_major_version(void);

@@ -41,6 +41,8 @@ PG_MODULE_MAGIC;
 #define DISKQUOTA_DB	"diskquota"
 #define DISKQUOTA_APPLICATION_NAME  "gp_reserved_gpdiskquota"
 
+extern int usleep(useconds_t usec); // in <unistd.h>
+
 /* flags set by signal handlers */
 static volatile sig_atomic_t got_sighup = false;
 static volatile sig_atomic_t got_sigterm = false;
@@ -50,6 +52,7 @@ static volatile sig_atomic_t got_sigusr1 = false;
 int			diskquota_naptime = 0;
 int			diskquota_max_active_tables = 0;
 int	        diskquota_worker_timeout = 60; /* default timeout is 60 seconds */
+bool		diskquota_hardlimit = false;
 
 DiskQuotaLocks diskquota_locks;
 ExtensionDDLMessage *extension_ddl_message = NULL;
@@ -229,7 +232,7 @@ define_guc_variables(void)
 							NULL);
 
 	DefineCustomIntVariable("diskquota.max_active_tables",
-							"max number of active tables monitored by disk-quota",
+							"Max number of active tables monitored by disk-quota.",
 							NULL,
 							&diskquota_max_active_tables,
 							1 * 1024 * 1024,
@@ -248,6 +251,16 @@ define_guc_variables(void)
 							60,
 							1,
 							INT_MAX,
+							PGC_SIGHUP,
+							0,
+							NULL,
+							NULL,
+							NULL);
+	DefineCustomBoolVariable("diskquota.hard_limit",
+							"Set this to 'on' to enable disk-quota hardlimit.",
+							NULL,
+							&diskquota_hardlimit,
+							false,
 							PGC_SIGHUP,
 							0,
 							NULL,
@@ -324,6 +337,10 @@ disk_quota_worker_main(Datum main_arg)
 					   diskquota_naptime * 1000L);
 		ResetLatch(&MyProc->procLatch);
 
+		// be nice to scheduler when naptime == 0 and diskquota_is_paused() == true
+		if (!diskquota_naptime)
+			usleep(1);
+
 		/* Emergency bailout if postmaster has died */
 		if (rc & WL_POSTMASTER_DEATH)
 			proc_exit(1);
@@ -366,6 +383,10 @@ disk_quota_worker_main(Datum main_arg)
 					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
 					   diskquota_naptime * 1000L);
 		ResetLatch(&MyProc->procLatch);
+
+		// be nice to scheduler when naptime == 0 and diskquota_is_paused() == true
+		if (!diskquota_naptime)
+			usleep(1);
 
 		/* Emergency bailout if postmaster has died */
 		if (rc & WL_POSTMASTER_DEATH)
@@ -469,6 +490,10 @@ disk_quota_launcher_main(Datum main_arg)
 					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
 					   diskquota_naptime * 1000L);
 		ResetLatch(&MyProc->procLatch);
+
+		// wait at least one time slice, avoid 100% CPU usage
+		if (!diskquota_naptime)
+			usleep(1);
 
 		/* Emergency bailout if postmaster has died */
 		if (rc & WL_POSTMASTER_DEATH)
@@ -956,6 +981,53 @@ terminate_all_workers(void)
 	LWLockRelease(diskquota_locks.worker_map_lock);
 }
 
+static bool
+worker_create_entry(Oid dbid)
+{
+	DiskQuotaWorkerEntry *workerentry = NULL;
+	bool found = false;
+
+	LWLockAcquire(diskquota_locks.worker_map_lock, LW_EXCLUSIVE);
+
+	workerentry = (DiskQuotaWorkerEntry *) hash_search(disk_quota_worker_map,
+													   (void *) &dbid,
+													   HASH_ENTER, &found);
+	if (!found)
+	{
+		workerentry->handle = NULL;
+		pg_atomic_write_u32(&(workerentry->epoch), 0);
+		workerentry->is_paused = false;
+	}
+
+	LWLockRelease(diskquota_locks.worker_map_lock);
+	return found;
+}
+
+static bool
+worker_set_handle(Oid dbid, BackgroundWorkerHandle *handle)
+{
+	DiskQuotaWorkerEntry *workerentry = NULL;
+	bool found = false;
+
+	LWLockAcquire(diskquota_locks.worker_map_lock, LW_EXCLUSIVE);
+
+	workerentry = (DiskQuotaWorkerEntry *) hash_search(disk_quota_worker_map,
+													   (void *) &dbid,
+													   HASH_ENTER, &found);
+	if (found)
+	{
+		workerentry->handle = handle;
+	} 
+	LWLockRelease(diskquota_locks.worker_map_lock);
+	if (!found)
+	{
+		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+						errmsg("[diskquota] worker not found for database \"%s\"",
+							   get_database_name(dbid))));	
+	}
+	return found;
+}
+
 /*
  * Dynamically launch an disk quota worker process.
  * This function is called when laucher process receive
@@ -970,9 +1042,10 @@ start_worker_by_dboid(Oid dbid)
 	MemoryContext old_ctx;
 	char	   *dbname;
 	pid_t		pid;
-	bool		found;
 	bool		ret;
-	DiskQuotaWorkerEntry *workerentry;
+
+	/* Create entry first so that it can be checked by bgworker and QD. */
+	worker_create_entry(dbid);
 
 	memset(&worker, 0, sizeof(BackgroundWorker));
 	worker.bgw_flags = BGWORKER_SHMEM_ACCESS |
@@ -1016,22 +1089,8 @@ start_worker_by_dboid(Oid dbid)
 
 	Assert(status == BGWH_STARTED);
 
-	LWLockAcquire(diskquota_locks.worker_map_lock, LW_EXCLUSIVE);
-
-	/* put the worker handle into the worker map */
-	workerentry = (DiskQuotaWorkerEntry *) hash_search(disk_quota_worker_map,
-													   (void *) &dbid,
-													   HASH_ENTER, &found);
-	if (!found)
-	{
-		workerentry->handle = handle;
-		workerentry->pid = pid;
-		pg_atomic_write_u32(&(workerentry->epoch), 0);
-		workerentry->is_paused = false;
-	}
-
-	LWLockRelease(diskquota_locks.worker_map_lock);
-
+	/* Save the handle to the worker map to check the liveness. */
+	worker_set_handle(dbid, handle);
 	return true;
 }
 
@@ -1130,7 +1189,7 @@ static const char* diskquota_status_check_hard_limit()
 	// should run on coordinator only.
 	Assert(IS_QUERY_DISPATCHER());
 
-	bool hardlimit = pg_atomic_read_u32(diskquota_hardlimit);
+	bool hardlimit = diskquota_hardlimit;
 
 	bool found, paused;
 	LWLockAcquire(diskquota_locks.worker_map_lock, LW_SHARED);
