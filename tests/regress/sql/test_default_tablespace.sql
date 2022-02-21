@@ -15,7 +15,9 @@ DROP TABLE if EXISTS t;
 CREATE TABLE t (i int);
 
 -- with hard limits off
-SELECT diskquota.disable_hardlimit();
+\! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
+\! gpstop -u > /dev/null
+
 SELECT diskquota.set_role_tablespace_quota('role1', 'pg_default', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to success
@@ -36,7 +38,9 @@ SET ROLE role2;
 CREATE TABLE t (i int);
 
 -- with hard limits on
-SELECT diskquota.enable_hardlimit();
+\! gpconfig -c "diskquota.hard_limit" -v "on" > /dev/null
+\! gpstop -u > /dev/null
+
 SELECT diskquota.set_role_tablespace_quota('role2', 'pg_default', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to fail because of hard limits
@@ -52,7 +56,9 @@ SET ROLE role1;
 CREATE EXTENSION diskquota;
 
 -- with hard limits off
-SELECT diskquota.disable_hardlimit();
+\! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
+\! gpstop -u > /dev/null
+
 SELECT diskquota.set_role_tablespace_quota('role1', 'custom_tablespace', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to success
@@ -72,7 +78,9 @@ SELECT diskquota.wait_for_worker_new_epoch();
 SET ROLE role2;
 
 -- with hard limits on
-SELECT diskquota.enable_hardlimit();
+\! gpconfig -c "diskquota.hard_limit" -v "on" > /dev/null
+\! gpstop -u > /dev/null
+
 SELECT diskquota.set_role_tablespace_quota('role2', 'custom_tablespace', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 
@@ -82,7 +90,10 @@ CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 50000000);
 
 -- clean up
 DROP TABLE IF EXISTS t_in_custom_tablespace;
-SELECT diskquota.disable_hardlimit();
+
+\! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
+\! gpstop -u > /dev/null
+
 DROP EXTENSION IF EXISTS diskquota;
 \c contrib_regression;
 DROP DATABASE IF EXISTS db_with_tablespace;
@@ -92,4 +103,5 @@ RESET ROLE;
 DROP ROLE IF EXISTS role1;
 DROP ROLE IF EXISTS role2;
 
-SELECT diskquota.disable_hardlimit();
+\! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
+\! gpstop -u > /dev/null
