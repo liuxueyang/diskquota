@@ -280,7 +280,7 @@ report_active_table_helper(const RelFileNodeBackend *relFileNode)
 	MemSet(&item, 0, sizeof(DiskQuotaActiveTableFileEntry));
 	item.dbid = relFileNode->node.dbNode;
 	item.relfilenode = relFileNode->node.relNode;
-	item.tablespaceoid = OidIsValid(relFileNode->node.spcNode) ? relFileNode->node.spcNode : MyDatabaseTableSpace;
+	item.tablespaceoid = relFileNode->node.spcNode;
 
 	LWLockAcquire(diskquota_locks.active_table_lock, LW_EXCLUSIVE);
 	entry = hash_search(active_tables_map, &item, HASH_ENTER_NULL, &found);
