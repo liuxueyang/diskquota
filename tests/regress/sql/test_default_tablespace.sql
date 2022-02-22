@@ -12,7 +12,7 @@ CREATE ROLE role2 SUPERUSER;
 SET ROLE role1;
 
 DROP TABLE if EXISTS t;
-CREATE TABLE t (i int);
+CREATE TABLE t (i int) DISTRIBUTED BY (i);
 
 -- with hard limits off
 \! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
@@ -35,7 +35,7 @@ DROP TABLE IF EXISTS t;
 SELECT diskquota.set_role_tablespace_quota('role1', 'pg_default', '-1');
 
 SET ROLE role2;
-CREATE TABLE t (i int);
+CREATE TABLE t (i int) DISTRIBUTED BY (i);
 
 -- with hard limits on
 \! gpconfig -c "diskquota.hard_limit" -v "on" > /dev/null
@@ -62,7 +62,7 @@ CREATE EXTENSION diskquota;
 SELECT diskquota.set_role_tablespace_quota('role1', 'custom_tablespace', '1 MB');
 SELECT diskquota.wait_for_worker_new_epoch();
 -- expect insert to success
-CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 100);
+CREATE TABLE t_in_custom_tablespace (i int) AS SELECT generate_series(1, 100) DISTRIBUTED BY (i);
 INSERT INTO t_in_custom_tablespace SELECT generate_series(1, 1000000);
 -- expect insert to fail
 INSERT INTO t_in_custom_tablespace SELECT generate_series(1, 1000000);
@@ -86,7 +86,7 @@ SELECT diskquota.wait_for_worker_new_epoch();
 
 DROP TABLE IF EXISTS t_in_custom_tablespace;
 -- expect insert to fail because of hard limits
-CREATE TABLE t_in_custom_tablespace AS SELECT generate_series(1, 50000000);
+CREATE TABLE t_in_custom_tablespace (i int) AS SELECT generate_series(1, 50000000) DISTRIBUTED BY (i);
 
 -- clean up
 DROP TABLE IF EXISTS t_in_custom_tablespace;
