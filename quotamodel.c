@@ -1787,15 +1787,11 @@ refresh_blackmap(PG_FUNCTION_ARGS)
 		keyitem.databaseoid   = DatumGetObjectId(GetAttributeByNum(lt, 2, &isnull));
 		keyitem.tablespaceoid = DatumGetObjectId(GetAttributeByNum(lt, 3, &isnull));
 		keyitem.targettype    = DatumGetInt32(GetAttributeByNum(lt, 4, &isnull));
-		/*
-		 * If the current quota limit type is NAMESPACE_TABLESPACE_QUOTA or
-		 * ROLE_TABLESPACE_QUOTA, we should explicitly set MyDatabaseTableSpace
-		 * for relations whose reltablespace is InvalidOid.
-		 */
-		if ((keyitem.targettype == NAMESPACE_TABLESPACE_QUOTA ||
-			 keyitem.targettype == ROLE_TABLESPACE_QUOTA) &&
-			!OidIsValid(keyitem.tablespaceoid))
-			keyitem.tablespaceoid = MyDatabaseTableSpace;
+		/* blackmap entries from QD should have the real tablespace oid */
+		if ((keyitem.targettype == NAMESPACE_TABLESPACE_QUOTA || keyitem.targettype == ROLE_TABLESPACE_QUOTA))
+		{
+			Assert(OidIsValid(keyitem.tablespaceoid));
+		}
 		segexceeded           = DatumGetBool(GetAttributeByNum(lt, 5, &isnull));
 
 		blackmapentry = hash_search(local_blackmap, &keyitem, HASH_ENTER_NULL, NULL);
