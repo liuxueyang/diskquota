@@ -31,10 +31,12 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
         bt = 0;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
+		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE'      THEN
         bt = 1;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
+		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
       WHEN 'NAMESPACE_TABLESPACE' THEN
         bt = 2;
         SELECT relnamespace INTO targetoid
@@ -50,7 +52,7 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
     ARRAY[
       ROW(targetoid,
           (SELECT oid FROM pg_database WHERE datname=current_database()),
-          (SELECT reltablespace FROM pg_class WHERE relname=rel::text),
+		  tablespaceoid,
           bt,
           false)
       ]::diskquota.blackmap_entry[],
