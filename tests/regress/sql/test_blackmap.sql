@@ -24,6 +24,7 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
   DECLARE
     bt        int;
     targetoid oid;
+    tablespaceoid oid;
   BEGIN
     CASE block_type
       WHEN 'NAMESPACE' THEN
@@ -38,10 +39,12 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
         bt = 2;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
+		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
       WHEN 'ROLE_TABLESPACE' THEN
         bt = 3;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
+		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
     END CASE;
     PERFORM diskquota.refresh_blackmap(
     ARRAY[
