@@ -94,7 +94,10 @@ DROP TABLE IF EXISTS t_in_custom_tablespace;
 \! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
 \! gpstop -u > /dev/null
 
+SELECT diskquota.pause();
+SELECT diskquota.wait_for_worker_new_epoch();
 DROP EXTENSION IF EXISTS diskquota;
+
 \c contrib_regression;
 DROP DATABASE IF EXISTS db_with_tablespace;
 DROP TABLESPACE IF EXISTS custom_tablespace;
