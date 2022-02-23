@@ -69,7 +69,7 @@ SELECT diskquota.wait_for_worker_new_epoch();
 
 -- expect insert to fail because of hard limits
 INSERT INTO t SELECT generate_series(1, 50000000);
-ERROR:  tablespace:1663 role:741734 diskquota exceeded  (seg0 127.0.0.1:6002 pid=14251)
+ERROR:  tablespace:1663 role:2290391 diskquota exceeded  (seg0 127.0.0.1:6002 pid=21843)
 DROP TABLE IF EXISTS t;
 SET ROLE role1;
 -- database in customized tablespace
@@ -141,12 +141,24 @@ DROP TABLE IF EXISTS t_in_custom_tablespace;
 NOTICE:  table "t_in_custom_tablespace" does not exist, skipping
 -- expect insert to fail because of hard limits
 CREATE TABLE t_in_custom_tablespace (i) AS SELECT generate_series(1, 50000000) DISTRIBUTED BY (i);
-ERROR:  tablespace:741741 role:741734 diskquota exceeded  (seg0 127.0.0.1:6002 pid=15210)
+ERROR:  tablespace:2290398 role:2290391 diskquota exceeded  (seg0 127.0.0.1:6002 pid=22842)
 -- clean up
 DROP TABLE IF EXISTS t_in_custom_tablespace;
 NOTICE:  table "t_in_custom_tablespace" does not exist, skipping
 \! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
 \! gpstop -u > /dev/null
+SELECT diskquota.pause();
+ pause 
+-------
+ 
+(1 row)
+
+SELECT diskquota.wait_for_worker_new_epoch();
+ wait_for_worker_new_epoch 
+---------------------------
+ t
+(1 row)
+
 DROP EXTENSION IF EXISTS diskquota;
 \c contrib_regression;
 DROP DATABASE IF EXISTS db_with_tablespace;
