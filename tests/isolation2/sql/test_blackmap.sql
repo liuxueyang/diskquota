@@ -18,7 +18,7 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text,
         bt = 1;                                                           /*in func*/
         SELECT relowner INTO targetoid                                    /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-    WHEN 'NAMESPACE_TABLESPACE' THEN                                    /*in func*/
+      WHEN 'NAMESPACE_TABLESPACE' THEN                                    /*in func*/
         bt = 2;                                                           /*in func*/
         SELECT relnamespace INTO targetoid                                /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
@@ -31,15 +31,21 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text,
     ARRAY[                                                                /*in func*/
       ROW(targetoid,                                                      /*in func*/
           (SELECT oid FROM pg_database WHERE datname=current_database()), /*in func*/
-          case
-          when bt in (0, 1)
-          then
-          (SELECT pg_class.reltablespace FROM pg_class WHERE relname=rel::text)
-          else
-          (SELECT (CASE reltablespace WHEN 0 THEN (
-            select dattablespace from pg_database where datname = current_database()
-            ) ELSE reltablespace END ) FROM pg_class WHERE relname=rel::text)
-          end,
+		  CASE
+			  WHEN bt IN (0, 1)
+				  THEN
+					  (SELECT pg_class.reltablespace FROM pg_class WHERE relname = rel::text)
+			  ELSE
+				  (SELECT (CASE reltablespace
+							   WHEN 0 THEN (
+								   SELECT dattablespace
+								   FROM pg_database
+								   WHERE datname = CURRENT_DATABASE()
+							   )
+							   ELSE reltablespace END)
+				   FROM pg_class
+				   WHERE relname = rel::text)
+			  END,
           bt,                                                             /*in func*/
           segexceeded)                                                    /*in func*/
       ]::diskquota.blackmap_entry[],                                      /*in func*/
@@ -211,7 +217,7 @@ CREATE OR REPLACE FUNCTION dump_relation_cache_to_file(filename text)
 AS $$
     rv = plpy.execute("""
                       SELECT (oid, relname, relowner,
-                        relnamespace, reltablespace,
+                              relnamespace, reltablespace,
                               relfilenode, gp_segment_id)::cached_relation_entry
                       FROM gp_dist_random('pg_class')
                       """)
@@ -278,24 +284,31 @@ CREATE OR REPLACE FUNCTION block_uncommitted_relation_on_seg0(rel text, block_ty
     ARRAY[                                                                /*in func*/
       ROW(targetoid,                                                      /*in func*/
           (SELECT oid FROM pg_database WHERE datname=current_database()), /*in func*/
-          (case
-           when bt in (0, 1) then (
-             SELECT reltablespace                                           /*in func*/
-               FROM read_relation_cache_from_file(filename)                 /*in func*/
-              WHERE relname=rel::text AND segid=0
-           )
-           else (
-             case
-             when (SELECT reltablespace                                           /*in func*/
-                     FROM read_relation_cache_from_file(filename)                 /*in func*/
-                    WHERE relname=rel::text AND segid=0) = 0
-               then 1663
-             else (SELECT reltablespace                                           /*in func*/
-                     FROM read_relation_cache_from_file(filename)                 /*in func*/
-                    WHERE relname=rel::text AND segid=0)
-             end
-             )
-          end),
+		  (CASE
+			   WHEN bt IN (0, 1) THEN (
+				   SELECT reltablespace /*in func*/
+				   FROM read_relation_cache_from_file(filename) /*in func*/
+				   WHERE relname = rel::text
+					 AND segid = 0
+			   )
+			   ELSE (
+				   CASE
+					   WHEN (SELECT reltablespace /*in func*/
+							 FROM read_relation_cache_from_file(filename) /*in func*/
+							 WHERE relname = rel::text
+							   AND segid = 0) = 0
+						   THEN (
+						   SELECT dattablespace
+						   FROM pg_database
+						   WHERE datname = CURRENT_DATABASE()
+					   )
+					   ELSE (SELECT reltablespace /*in func*/
+							 FROM read_relation_cache_from_file(filename) /*in func*/
+							 WHERE relname = rel::text
+							   AND segid = 0)
+					   END
+				   )
+			  END),
           bt,                                                             /*in func*/
           segexceeded)                                                    /*in func*/
       ]::diskquota.blackmap_entry[],                                      /*in func*/

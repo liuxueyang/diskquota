@@ -41,14 +41,33 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
         bt = 2;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-        SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
-        FROM pg_class WHERE relname=rel::text;
+		SELECT (CASE reltablespace
+					WHEN 0 THEN
+						(
+							SELECT dattablespace
+							FROM pg_database
+							WHERE datname = CURRENT_DATABASE()
+						)
+					ELSE reltablespace END)
+		INTO tablespaceoid
+		FROM pg_class
+		WHERE relname = rel::text;
       WHEN 'ROLE_TABLESPACE' THEN
         bt = 3;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
-		FROM pg_class WHERE relname=rel::text;
+		SELECT (CASE reltablespace
+					WHEN 0 THEN
+						(
+							SELECT dattablespace
+							FROM pg_database
+							WHERE datname = CURRENT_DATABASE()
+						)
+
+					ELSE reltablespace END)
+		INTO tablespaceoid
+		FROM pg_class
+		WHERE relname = rel::text;
 		END CASE;
     PERFORM diskquota.refresh_blackmap(
     ARRAY[
@@ -65,7 +84,7 @@ LANGUAGE 'plpgsql';
 
 --
 -- 1. Create an ordinary table and add its oid to blackmap on seg0.
---    Check that it's relfilenode is blocked on seg0 by variouts conditions.
+--    Check that it's relfilenode is blocked on seg0 by various conditions.
 --
 CREATE TABLE blocked_t1(i int) DISTRIBUTED BY (i);
 
