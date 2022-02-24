@@ -19,6 +19,26 @@ CREATE OR REPLACE FUNCTION replace_oid_with_relname(given_name text)
   END;
 $$ LANGUAGE plpgsql;
 
+-- this function return valid tablespaceoid.
+-- For role/namespace quota, return as it is.
+-- For namespace_tablespace/role_tablespace quota, return non-zero tablespaceoid.
+CREATE OR REPLACE FUNCTION get_real_tablespace_oid(block_type text, tablespaceoid oid)
+	RETURNS oid AS
+$$
+BEGIN
+	CASE
+		WHEN (block_type = 'NAMESPACE') OR (block_type = 'ROLE') THEN RETURN tablespaceoid;
+		ELSE RETURN (
+			CASE tablespaceoid
+				WHEN 0 THEN (SELECT dattablespace FROM pg_database WHERE datname = CURRENT_DATABASE())
+				ELSE
+					tablespaceoid
+				END
+			);
+		END CASE;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
   RETURNS void AS $$
   DECLARE
@@ -26,54 +46,30 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
     targetoid oid;
     tablespaceoid oid;
   BEGIN
+    SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
     CASE block_type
       WHEN 'NAMESPACE' THEN
         bt = 0;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE'      THEN
         bt = 1;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
       WHEN 'NAMESPACE_TABLESPACE' THEN
         bt = 2;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT (CASE reltablespace
-					WHEN 0 THEN
-						(
-							SELECT dattablespace
-							FROM pg_database
-							WHERE datname = CURRENT_DATABASE()
-						)
-					ELSE reltablespace END)
-		INTO tablespaceoid
-		FROM pg_class
-		WHERE relname = rel::text;
       WHEN 'ROLE_TABLESPACE' THEN
         bt = 3;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT (CASE reltablespace
-					WHEN 0 THEN
-						(
-							SELECT dattablespace
-							FROM pg_database
-							WHERE datname = CURRENT_DATABASE()
-						)
-
-					ELSE reltablespace END)
-		INTO tablespaceoid
-		FROM pg_class
-		WHERE relname = rel::text;
-		END CASE;
+	END CASE;
     PERFORM diskquota.refresh_blackmap(
     ARRAY[
       ROW(targetoid,
           (SELECT oid FROM pg_database WHERE datname=current_database()),
-		  tablespaceoid,
+          (SELECT get_real_tablespace_oid(block_type, tablespaceoid)),
           bt,
           false)
       ]::diskquota.blackmap_entry[],
@@ -211,6 +207,7 @@ SELECT replace_oid_with_relname(rel.relname),
 -- Do some clean-ups.
 DROP FUNCTION replace_oid_with_relname(text);
 DROP FUNCTION block_relation_on_seg0(regclass, text);
+DROP FUNCTION get_real_tablespace_oid(text, oid);
 DROP TABLE blocked_t1;
 DROP TABLE blocked_t2;
 DROP TABLE blocked_t3;
