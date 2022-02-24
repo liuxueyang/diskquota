@@ -8,37 +8,38 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text,
   DECLARE                                                                 /*in func*/
     bt          int;                                                      /*in func*/
     targetoid   oid;                                                      /*in func*/
-	tablespaceoid oid;
   BEGIN                                                                   /*in func*/
     CASE block_type                                                       /*in func*/
       WHEN 'NAMESPACE' THEN                                               /*in func*/
         bt = 0;                                                           /*in func*/
         SELECT relnamespace INTO targetoid                                /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE'      THEN                                               /*in func*/
         bt = 1;                                                           /*in func*/
         SELECT relowner INTO targetoid                                    /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT reltablespace INTO tablespaceoid FROM pg_class WHERE relname=rel::text;
-      WHEN 'NAMESPACE_TABLESPACE' THEN                                    /*in func*/
+    WHEN 'NAMESPACE_TABLESPACE' THEN                                    /*in func*/
         bt = 2;                                                           /*in func*/
         SELECT relnamespace INTO targetoid                                /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
-		FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE_TABLESPACE' THEN                                         /*in func*/
         bt = 3;                                                           /*in func*/
         SELECT relowner INTO targetoid                                    /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
-		FROM pg_class WHERE relname=rel::text;
     END CASE;                                                             /*in func*/
     PERFORM diskquota.refresh_blackmap(                                   /*in func*/
     ARRAY[                                                                /*in func*/
       ROW(targetoid,                                                      /*in func*/
           (SELECT oid FROM pg_database WHERE datname=current_database()), /*in func*/
-          tablespaceoid,												  /*in func*/
+          case
+          when bt in (0, 1)
+          then
+          (SELECT pg_class.reltablespace FROM pg_class WHERE relname=rel::text)
+          else
+          (SELECT (CASE reltablespace WHEN 0 THEN (
+            select dattablespace from pg_database where datname = current_database()
+            ) ELSE reltablespace END ) FROM pg_class WHERE relname=rel::text)
+          end,
           bt,                                                             /*in func*/
           segexceeded)                                                    /*in func*/
       ]::diskquota.blackmap_entry[],                                      /*in func*/
