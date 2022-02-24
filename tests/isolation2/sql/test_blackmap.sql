@@ -211,7 +211,7 @@ CREATE OR REPLACE FUNCTION dump_relation_cache_to_file(filename text)
 AS $$
     rv = plpy.execute("""
                       SELECT (oid, relname, relowner,
-                              relnamespace, reltablespace,
+                        relnamespace, reltablespace,
                               relfilenode, gp_segment_id)::cached_relation_entry
                       FROM gp_dist_random('pg_class')
                       """)
@@ -278,9 +278,24 @@ CREATE OR REPLACE FUNCTION block_uncommitted_relation_on_seg0(rel text, block_ty
     ARRAY[                                                                /*in func*/
       ROW(targetoid,                                                      /*in func*/
           (SELECT oid FROM pg_database WHERE datname=current_database()), /*in func*/
-          (SELECT reltablespace                                           /*in func*/
-             FROM read_relation_cache_from_file(filename)                 /*in func*/
-             WHERE relname=rel::text AND segid=0),                        /*in func*/
+          (case
+           when bt in (0, 1) then (
+             SELECT reltablespace                                           /*in func*/
+               FROM read_relation_cache_from_file(filename)                 /*in func*/
+              WHERE relname=rel::text AND segid=0
+           )
+           else (
+             case
+             when (SELECT reltablespace                                           /*in func*/
+                     FROM read_relation_cache_from_file(filename)                 /*in func*/
+                    WHERE relname=rel::text AND segid=0) = 0
+               then 1663
+             else (SELECT reltablespace                                           /*in func*/
+                     FROM read_relation_cache_from_file(filename)                 /*in func*/
+                    WHERE relname=rel::text AND segid=0)
+             end
+             )
+          end),
           bt,                                                             /*in func*/
           segexceeded)                                                    /*in func*/
       ]::diskquota.blackmap_entry[],                                      /*in func*/
