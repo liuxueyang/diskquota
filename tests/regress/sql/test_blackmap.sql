@@ -41,13 +41,15 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text)
         bt = 2;
         SELECT relnamespace INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
+        SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
+        FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE_TABLESPACE' THEN
         bt = 3;
         SELECT relowner INTO targetoid
           FROM pg_class WHERE relname=rel::text;
-		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
-    END CASE;
+		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
+		FROM pg_class WHERE relname=rel::text;
+		END CASE;
     PERFORM diskquota.refresh_blackmap(
     ARRAY[
       ROW(targetoid,

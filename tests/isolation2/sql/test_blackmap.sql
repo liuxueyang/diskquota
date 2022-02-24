@@ -25,12 +25,14 @@ CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text,
         bt = 2;                                                           /*in func*/
         SELECT relnamespace INTO targetoid                                /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
+		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
+		FROM pg_class WHERE relname=rel::text;
       WHEN 'ROLE_TABLESPACE' THEN                                         /*in func*/
         bt = 3;                                                           /*in func*/
         SELECT relowner INTO targetoid                                    /*in func*/
           FROM pg_class WHERE relname=rel::text;                          /*in func*/
-		SELECT dattablespace INTO tablespaceoid FROM pg_database WHERE datname = current_database();
+		SELECT (CASE reltablespace WHEN 0 THEN 1663 ELSE reltablespace END ) INTO tablespaceoid
+		FROM pg_class WHERE relname=rel::text;
     END CASE;                                                             /*in func*/
     PERFORM diskquota.refresh_blackmap(                                   /*in func*/
     ARRAY[                                                                /*in func*/
