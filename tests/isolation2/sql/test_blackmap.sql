@@ -273,22 +273,22 @@ CREATE OR REPLACE FUNCTION block_uncommitted_relation_on_seg0(rel text, block_ty
         bt = 0;                                                                                /*in func*/
         SELECT relnamespace INTO targetoid                                                     /*in func*/
           FROM read_relation_cache_from_file(filename)                                         /*in func*/
-	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+    WHERE relname=rel::text AND segid=0;                                                       /*in func*/
       WHEN 'ROLE'      THEN                                                                    /*in func*/
         bt = 1;                                                                                /*in func*/
         SELECT relowner INTO targetoid                                                         /*in func*/
           FROM read_relation_cache_from_file(filename)                                         /*in func*/
-	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+    WHERE relname=rel::text AND segid=0;                                                       /*in func*/
       WHEN 'NAMESPACE_TABLESPACE' THEN                                                         /*in func*/
         bt = 2;                                                                                /*in func*/
         SELECT relnamespace INTO targetoid                                                     /*in func*/
           FROM read_relation_cache_from_file(filename)                                         /*in func*/
-	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+    WHERE relname=rel::text AND segid=0;                                                       /*in func*/
       WHEN 'ROLE_TABLESPACE' THEN                                                              /*in func*/
         bt = 3;                                                                                /*in func*/
         SELECT relowner INTO targetoid                                                         /*in func*/
           FROM read_relation_cache_from_file(filename)                                         /*in func*/
-	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+    WHERE relname=rel::text AND segid=0;                                                       /*in func*/
     END CASE;                                                                                  /*in func*/
     PERFORM diskquota.refresh_blackmap(                                                        /*in func*/
     ARRAY[                                                                                     /*in func*/
