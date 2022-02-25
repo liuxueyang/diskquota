@@ -25,43 +25,43 @@ END;                                                                            
 $$ LANGUAGE plpgsql;                                                                           /*in func*/
 
 CREATE OR REPLACE FUNCTION block_relation_on_seg0(rel regclass, block_type text, segexceeded boolean)
-  RETURNS void AS $$                                                                  /*in func*/
-  DECLARE                                                                             /*in func*/
-    bt          int;                                                                  /*in func*/
-    targetoid   oid;                                                                  /*in func*/
-  BEGIN                                                                               /*in func*/
-    CASE block_type                                                                   /*in func*/
-      WHEN 'NAMESPACE' THEN                                                           /*in func*/
-        bt = 0;                                                                       /*in func*/
-        SELECT relnamespace INTO targetoid                                            /*in func*/
-          FROM pg_class WHERE relname=rel::text;                                      /*in func*/
-      WHEN 'ROLE'      THEN                                                           /*in func*/
-        bt = 1;                                                                       /*in func*/
-        SELECT relowner INTO targetoid                                                /*in func*/
-          FROM pg_class WHERE relname=rel::text;                                      /*in func*/
-      WHEN 'NAMESPACE_TABLESPACE' THEN                                                /*in func*/
-        bt = 2;                                                                       /*in func*/
-        SELECT relnamespace INTO targetoid                                            /*in func*/
-          FROM pg_class WHERE relname=rel::text;                                      /*in func*/
-      WHEN 'ROLE_TABLESPACE' THEN                                                     /*in func*/
-        bt = 3;                                                                       /*in func*/
-        SELECT relowner INTO targetoid                                                /*in func*/
-          FROM pg_class WHERE relname=rel::text;                                      /*in func*/
-    END CASE;                                                                         /*in func*/
-    PERFORM diskquota.refresh_blackmap(                                               /*in func*/
-    ARRAY[                                                                            /*in func*/
-      ROW(targetoid,                                                                  /*in func*/
-          (SELECT oid FROM pg_database WHERE datname=current_database()),             /*in func*/
-		  (SELECT get_real_tablespace_oid(                                                /*in func*/
-						  block_type,                                                             /*in func*/
-						  (SELECT pg_class.reltablespace FROM pg_class WHERE relname = rel::TEXT) /*in func*/
-					  )),                                                                       /*in func*/
-          bt,                                                                         /*in func*/
-          segexceeded)                                                                /*in func*/
-      ]::diskquota.blackmap_entry[],                                                  /*in func*/
-    ARRAY[rel]::oid[])                                                                /*in func*/
-  FROM gp_dist_random('gp_id') WHERE gp_segment_id=0;                                 /*in func*/
-  END; $$                                                                             /*in func*/
+  RETURNS void AS $$                                                                                                   /*in func*/
+  DECLARE                                                                                                              /*in func*/
+    bt          int;                                                                                                   /*in func*/
+    targetoid   oid;                                                                                                   /*in func*/
+  BEGIN                                                                                                                /*in func*/
+    CASE block_type                                                                                                    /*in func*/
+      WHEN 'NAMESPACE' THEN                                                                                            /*in func*/
+        bt = 0;                                                                                                        /*in func*/
+        SELECT relnamespace INTO targetoid                                                                             /*in func*/
+          FROM pg_class WHERE relname=rel::text;                                                                       /*in func*/
+      WHEN 'ROLE'      THEN                                                                                            /*in func*/
+        bt = 1;                                                                                                        /*in func*/
+        SELECT relowner INTO targetoid                                                                                 /*in func*/
+          FROM pg_class WHERE relname=rel::text;                                                                       /*in func*/
+      WHEN 'NAMESPACE_TABLESPACE' THEN                                                                                 /*in func*/
+        bt = 2;                                                                                                        /*in func*/
+        SELECT relnamespace INTO targetoid                                                                             /*in func*/
+          FROM pg_class WHERE relname=rel::text;                                                                       /*in func*/
+      WHEN 'ROLE_TABLESPACE' THEN                                                                                      /*in func*/
+        bt = 3;                                                                                                        /*in func*/
+        SELECT relowner INTO targetoid                                                                                 /*in func*/
+          FROM pg_class WHERE relname=rel::text;                                                                       /*in func*/
+    END CASE;                                                                                                          /*in func*/
+    PERFORM diskquota.refresh_blackmap(                                                                                /*in func*/
+    ARRAY[                                                                                                             /*in func*/
+          ROW (targetoid,                                                                                              /*in func*/
+               (SELECT oid FROM pg_database WHERE datname = CURRENT_DATABASE()),                                       /*in func*/
+               (SELECT get_real_tablespace_oid(                                                                        /*in func*/
+                                               block_type,                                                             /*in func*/
+                                               (SELECT pg_class.reltablespace FROM pg_class WHERE relname = rel::TEXT) /*in func*/
+               )),                                                                                                     /*in func*/
+               bt,                                                                                                     /*in func*/
+               segexceeded)                                                                                            /*in func*/
+      ]::diskquota.blackmap_entry[],                                                                                   /*in func*/
+    ARRAY[rel]::oid[])                                                                                                 /*in func*/
+  FROM gp_dist_random('gp_id') WHERE gp_segment_id=0;                                                                  /*in func*/
+  END; $$                                                                                                              /*in func*/
 LANGUAGE 'plpgsql';
 
 
@@ -263,69 +263,51 @@ $$ LANGUAGE plpgsql;
 
 -- This function helps dispatch blackmap for the given relation to seg0.
 CREATE OR REPLACE FUNCTION block_uncommitted_relation_on_seg0(rel text, block_type text, segexceeded boolean, filename text)
-  RETURNS void AS $$                                                      /*in func*/
-  DECLARE                                                                 /*in func*/
-    bt          int;                                                      /*in func*/
-    targetoid   oid;                                                      /*in func*/
-  BEGIN                                                                   /*in func*/
-    CASE block_type                                                       /*in func*/
-      WHEN 'NAMESPACE' THEN                                               /*in func*/
-        bt = 0;                                                           /*in func*/
-        SELECT relnamespace INTO targetoid                                /*in func*/
-          FROM read_relation_cache_from_file(filename)                    /*in func*/
-	  WHERE relname=rel::text AND segid=0;                            /*in func*/
-      WHEN 'ROLE'      THEN                                               /*in func*/
-        bt = 1;                                                           /*in func*/
-        SELECT relowner INTO targetoid                                    /*in func*/
-          FROM read_relation_cache_from_file(filename)                    /*in func*/
-	  WHERE relname=rel::text AND segid=0;                            /*in func*/
-      WHEN 'NAMESPACE_TABLESPACE' THEN                                    /*in func*/
-        bt = 2;                                                           /*in func*/
-        SELECT relnamespace INTO targetoid                                /*in func*/
-          FROM read_relation_cache_from_file(filename)                    /*in func*/
-	  WHERE relname=rel::text AND segid=0;                            /*in func*/
-      WHEN 'ROLE_TABLESPACE' THEN                                         /*in func*/
-        bt = 3;                                                           /*in func*/
-        SELECT relowner INTO targetoid                                    /*in func*/
-          FROM read_relation_cache_from_file(filename)                    /*in func*/
-	  WHERE relname=rel::text AND segid=0;                            /*in func*/
-    END CASE;                                                             /*in func*/
-    PERFORM diskquota.refresh_blackmap(                                   /*in func*/
-    ARRAY[                                                                /*in func*/
-      ROW(targetoid,                                                      /*in func*/
-          (SELECT oid FROM pg_database WHERE datname=current_database()), /*in func*/
-		  (CASE
-			   WHEN bt IN (0, 1) THEN (
-				   SELECT reltablespace /*in func*/
-				   FROM read_relation_cache_from_file(filename) /*in func*/
-				   WHERE relname = rel::text
-					 AND segid = 0
-			   )
-			   ELSE (
-				   CASE
-					   WHEN (SELECT reltablespace /*in func*/
-							 FROM read_relation_cache_from_file(filename) /*in func*/
-							 WHERE relname = rel::text
-							   AND segid = 0) = 0
-						   THEN (
-						   SELECT dattablespace
-						   FROM pg_database
-						   WHERE datname = CURRENT_DATABASE()
-					   )
-					   ELSE (SELECT reltablespace /*in func*/
-							 FROM read_relation_cache_from_file(filename) /*in func*/
-							 WHERE relname = rel::text
-							   AND segid = 0)
-					   END
-				   )
-			  END),
-          bt,                                                             /*in func*/
-          segexceeded)                                                    /*in func*/
-      ]::diskquota.blackmap_entry[],                                      /*in func*/
-    ARRAY[(SELECT reloid FROM read_relation_cache_from_file(filename)     /*in func*/
-             WHERE relname=rel::text AND segid=0)::regclass]::oid[])      /*in func*/
-  FROM gp_dist_random('gp_id') WHERE gp_segment_id=0;                     /*in func*/
-  END; $$                                                                 /*in func*/
+  RETURNS void AS $$                                                                           /*in func*/
+  DECLARE                                                                                      /*in func*/
+    bt          int;                                                                           /*in func*/
+    targetoid   oid;                                                                           /*in func*/
+  BEGIN                                                                                        /*in func*/
+    CASE block_type                                                                            /*in func*/
+      WHEN 'NAMESPACE' THEN                                                                    /*in func*/
+        bt = 0;                                                                                /*in func*/
+        SELECT relnamespace INTO targetoid                                                     /*in func*/
+          FROM read_relation_cache_from_file(filename)                                         /*in func*/
+	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+      WHEN 'ROLE'      THEN                                                                    /*in func*/
+        bt = 1;                                                                                /*in func*/
+        SELECT relowner INTO targetoid                                                         /*in func*/
+          FROM read_relation_cache_from_file(filename)                                         /*in func*/
+	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+      WHEN 'NAMESPACE_TABLESPACE' THEN                                                         /*in func*/
+        bt = 2;                                                                                /*in func*/
+        SELECT relnamespace INTO targetoid                                                     /*in func*/
+          FROM read_relation_cache_from_file(filename)                                         /*in func*/
+	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+      WHEN 'ROLE_TABLESPACE' THEN                                                              /*in func*/
+        bt = 3;                                                                                /*in func*/
+        SELECT relowner INTO targetoid                                                         /*in func*/
+          FROM read_relation_cache_from_file(filename)                                         /*in func*/
+	  WHERE relname=rel::text AND segid=0;                                                       /*in func*/
+    END CASE;                                                                                  /*in func*/
+    PERFORM diskquota.refresh_blackmap(                                                        /*in func*/
+    ARRAY[                                                                                     /*in func*/
+          ROW (targetoid,                                                                      /*in func*/
+               (SELECT oid FROM pg_database WHERE datname = CURRENT_DATABASE()),               /*in func*/
+               (SELECT get_real_tablespace_oid(                                                /*in func*/
+                                               block_type,                                     /*in func*/
+                                               (SELECT reltablespace                           /*in func*/
+                                                  FROM read_relation_cache_from_file(filename) /*in func*/
+                                                 WHERE relname = rel::text                     /*in func*/
+                                                   AND segid = 0)                              /*in func*/
+               )),                                                                             /*in func*/
+               bt,                                                                             /*in func*/
+               segexceeded)                                                                    /*in func*/
+      ]::diskquota.blackmap_entry[],                                                           /*in func*/
+    ARRAY[(SELECT reloid FROM read_relation_cache_from_file(filename)                          /*in func*/
+             WHERE relname=rel::text AND segid=0)::regclass]::oid[])                           /*in func*/
+  FROM gp_dist_random('gp_id') WHERE gp_segment_id=0;                                          /*in func*/
+  END; $$                                                                                      /*in func*/
 LANGUAGE 'plpgsql';
 
 -- 7. Test that we are able to block an ordinary relation on seg0 by its relnamespace.
