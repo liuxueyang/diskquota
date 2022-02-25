@@ -105,6 +105,3 @@ DROP TABLESPACE IF EXISTS custom_tablespace;
 RESET ROLE;
 DROP ROLE IF EXISTS role1;
 DROP ROLE IF EXISTS role2;
-
-\! gpconfig -c "diskquota.hard_limit" -v "off" > /dev/null
-\! gpstop -u > /dev/null
