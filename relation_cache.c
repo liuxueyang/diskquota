@@ -200,7 +200,7 @@ parse_primary_table_oid(Oid relid)
 	Oid parsed_oid;
 	char relname[NAMEDATALEN];
 
-	rel = diskquota_relation_open(relid, NoLock);
+	rel = diskquota_try_relation_open(relid, NoLock);
 	if (rel == NULL)
 	{
 		return InvalidOid;
