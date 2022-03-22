@@ -1506,14 +1506,19 @@ diskquota_try_relation_open(Oid relid, LOCKMODE mode)
 	}
 	PG_CATCH();
 	{
-		ereport(LOG, (errmsg("catch diskquota_try_relation_open. relid: %u", relid)));
-
-		#include "utils/guc.h"
-		client_min_messages = PANIC;
+		ereport(WARNING, (errmsg("catch diskquota_try_relation_open. relid: %u", relid)));
 
 		InterruptHoldoffCount = SavedInterruptHoldoffCount;
 		HOLD_INTERRUPTS();
+
+		if (!elog_demote(WARNING))
+		{
+			elog(LOG, "unable to demote an error");
+			PG_RE_THROW();
+		}
+
 		EmitErrorReport();
+
 		FlushErrorState();
 		RESUME_INTERRUPTS();
     }
