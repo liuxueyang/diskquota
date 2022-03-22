@@ -1468,6 +1468,7 @@ relation_size_local(PG_FUNCTION_ARGS)
 Relation
 diskquota_relation_open(Oid relid, LOCKMODE mode)
 {
+	ereport(LOG, (errmsg("diskquota_relation_open")));
 	Relation rel;
 	bool success_open = false;
     int32 SavedInterruptHoldoffCount = InterruptHoldoffCount;
@@ -1501,11 +1502,18 @@ diskquota_try_relation_open(Oid relid, LOCKMODE mode)
 	{
 		rel = try_relation_open(relid, mode, TRUE);
 		if (rel != NULL) success_open = true;
+		if (rel != NULL) ereport(LOG, (errmsg("null try_relation_open. relid: %u", relid)));
 	}
 	PG_CATCH();
 	{
+		ereport(LOG, (errmsg("catch diskquota_try_relation_open. relid: %u", relid)));
+
+		#include "utils/guc.h"
+		client_min_messages = PANIC;
+
 		InterruptHoldoffCount = SavedInterruptHoldoffCount;
 		HOLD_INTERRUPTS();
+		EmitErrorReport();
 		FlushErrorState();
 		RESUME_INTERRUPTS();
     }
