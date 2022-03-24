@@ -9,7 +9,7 @@ def gp_run(command: List[str]):
     sp.run(command, universal_newlines=True, env=env)
 
 def db_exec(db: str, command: List[str]):
-    gp_run(['time', 'psql', db], input=command, universal_newlines=True)
+    sp.run(['time', 'psql', db], input=command, universal_newlines=True)
 
 def db_clean(db: str):
     db_exec(db, 'DROP EXTENSION IF EXISTS diskquota;')
