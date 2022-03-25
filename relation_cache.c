@@ -200,15 +200,24 @@ parse_primary_table_oid(Oid relid, bool on_bgworker)
 	Oid parsed_oid;
 	char relname[NAMEDATALEN];
 
-	rel = on_bgworker ? diskquota_try_relation_open(relid, NoLock) : diskquota_relation_open(relid, NoLock);
-	if (rel == NULL)
+	if (on_bgworker)
 	{
-		return InvalidOid;
+		if (!get_rel_name_tablespace(relid, &namespace, relname))
+		{
+			return InvalidOid;
+		}
 	}
-
-	namespace = rel->rd_rel->relnamespace;
-	memcpy(relname, rel->rd_rel->relname.data, NAMEDATALEN);
-	relation_close(rel, NoLock);
+	else
+	{
+		rel = diskquota_relation_open(relid, NoLock);
+		if (rel == NULL)
+		{
+			return InvalidOid;
+		}
+		namespace = rel->rd_rel->relnamespace;
+		memcpy(relname, rel->rd_rel->relname.data, NAMEDATALEN);
+		relation_close(rel, NoLock);
+	}
 
 	parsed_oid = diskquota_parse_primary_table_oid(namespace, relname);
 	if (OidIsValid(parsed_oid))

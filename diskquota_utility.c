@@ -1468,7 +1468,6 @@ relation_size_local(PG_FUNCTION_ARGS)
 Relation
 diskquota_relation_open(Oid relid, LOCKMODE mode)
 {
-	ereport(LOG, (errmsg("diskquota_relation_open")));
 	Relation rel;
 	bool success_open = false;
     int32 SavedInterruptHoldoffCount = InterruptHoldoffCount;
@@ -1486,42 +1485,6 @@ diskquota_relation_open(Oid relid, LOCKMODE mode)
 		FlushErrorState();
 		RESUME_INTERRUPTS();
 	}
-	PG_END_TRY();
-
-	return success_open ? rel : NULL;
-}
-
-Relation
-diskquota_try_relation_open(Oid relid, LOCKMODE mode)
-{
-	Relation rel;
-	bool     success_open               = false;
-	int32 SavedInterruptHoldoffCount = InterruptHoldoffCount;
-
-	PG_TRY();
-	{
-		rel = try_relation_open(relid, mode, TRUE);
-		if (rel != NULL) success_open = true;
-		if (rel != NULL) ereport(LOG, (errmsg("null try_relation_open. relid: %u", relid)));
-	}
-	PG_CATCH();
-	{
-		ereport(WARNING, (errmsg("catch diskquota_try_relation_open. relid: %u", relid)));
-
-		InterruptHoldoffCount = SavedInterruptHoldoffCount;
-		HOLD_INTERRUPTS();
-
-		if (!elog_demote(WARNING))
-		{
-			elog(LOG, "unable to demote an error");
-			PG_RE_THROW();
-		}
-
-		EmitErrorReport();
-
-		FlushErrorState();
-		RESUME_INTERRUPTS();
-    }
 	PG_END_TRY();
 
 	return success_open ? rel : NULL;
