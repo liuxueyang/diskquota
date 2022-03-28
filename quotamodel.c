@@ -1327,7 +1327,7 @@ get_rel_owner_schema_tablespace(Oid relid, Oid *ownerOid, Oid *nsOid, Oid *table
  * Given table oid, search for namespace and name.
  */
 bool
-get_rel_name_tablespace(Oid relid, Oid *nsOid, char *relname)
+get_rel_name_namespace(Oid relid, Oid *nsOid, char *relname)
 {
 	HeapTuple tp;
 

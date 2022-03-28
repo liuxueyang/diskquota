@@ -197,7 +197,7 @@ parse_primary_table_oid(Oid relid, bool on_bgworker)
 
 	if (on_bgworker)
 	{
-		if (!get_rel_name_tablespace(relid, &namespace, relname))
+		if (!get_rel_name_namespace(relid, &namespace, relname))
 		{
 			return InvalidOid;
 		}
