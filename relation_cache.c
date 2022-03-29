@@ -195,6 +195,10 @@ parse_primary_table_oid(Oid relid, bool on_bgworker)
 	Oid  parsed_oid;
 	char relname[NAMEDATALEN];
 
+	/* diskquota bgworker should be error tolerant to keep it running in background,
+	 * so we can't throw an error.
+	 * On the other hand, diskquota launcher can throw and error if needed.
+	 */
 	if (on_bgworker)
 	{
 		if (!get_rel_name_namespace(relid, &namespace, relname))

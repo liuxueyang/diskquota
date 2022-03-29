@@ -1325,6 +1325,7 @@ get_rel_owner_schema_tablespace(Oid relid, Oid *ownerOid, Oid *nsOid, Oid *table
 
 /*
  * Given table oid, search for namespace and name.
+ * memory relname points to should be pre-allocated at least NAMEDATALEN bytes.
  */
 bool
 get_rel_name_namespace(Oid relid, Oid *nsOid, char *relname)
@@ -1333,7 +1334,7 @@ get_rel_name_namespace(Oid relid, Oid *nsOid, char *relname)
 
 	tp         = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 	bool found = HeapTupleIsValid(tp);
-	if (HeapTupleIsValid(tp))
+	if (found)
 	{
 		Form_pg_class reltup = (Form_pg_class)GETSTRUCT(tp);
 
