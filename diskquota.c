@@ -42,9 +42,12 @@ PG_MODULE_MAGIC;
 #define DISKQUOTA_APPLICATION_NAME "gp_reserved_gpdiskquota"
 
 /* clang-format off */
-#if !defined(DISKQUOTA_VERSION) || !defined(DISKQUOTA_MAJOR_VERSION) || !defined(DISKQUOTA_PATCH_VERSION) || \
-    !defined(DISKQUOTA_MINOR_VERSION) || !defined(DISKQUOTA_BINARY_NAME)
-#error Version not found. Please check if the VERSION file exists.
+#if !defined(DISKQUOTA_VERSION) || \
+	!defined(DISKQUOTA_MAJOR_VERSION) || \
+	!defined(DISKQUOTA_PATCH_VERSION) || \
+	!defined(DISKQUOTA_MINOR_VERSION) || \
+	!defined(DISKQUOTA_BINARY_NAME)
+	#error Version not found. Please check if the VERSION file exists.
 #endif
 /* clang-format on */
 
