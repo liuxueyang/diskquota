@@ -1325,7 +1325,7 @@ get_rel_owner_schema_tablespace(Oid relid, Oid *ownerOid, Oid *nsOid, Oid *table
 
 /*
  * Given table oid, search for namespace and name.
- * memory relname points to should be pre-allocated at least NAMEDATALEN bytes.
+ * Memory relname points to should be pre-allocated at least NAMEDATALEN bytes.
  */
 bool
 get_rel_name_namespace(Oid relid, Oid *nsOid, char *relname)
