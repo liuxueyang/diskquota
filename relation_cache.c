@@ -206,8 +206,7 @@ parse_primary_table_oid(Oid relid, bool on_bgworker)
 		{
 			return InvalidOid;
 		}
-	}
-	else
+	} else
 	{
 		rel = diskquota_relation_open(relid, NoLock);
 		if (rel == NULL)
