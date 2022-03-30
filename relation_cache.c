@@ -173,7 +173,7 @@ update_relation_cache(Oid relid)
 	memcpy(relid_entry, &relid_entry_data, sizeof(DiskQuotaRelidCacheEntry));
 	LWLockRelease(diskquota_locks.relation_cache_lock);
 
-	prelid = get_primary_table_oid(relid, FALSE);
+	prelid = get_primary_table_oid(relid, false);
 	if (OidIsValid(prelid) && prelid != relid)
 	{
 		LWLockAcquire(diskquota_locks.relation_cache_lock, LW_EXCLUSIVE);
