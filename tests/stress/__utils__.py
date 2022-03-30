@@ -17,7 +17,7 @@ def db_clean(db: str):
     gp_run(['createdb', db])
 
 def db_enable_diskquota(db: str, guc: Dict[str, str]={}):
-    gp_run(['gpconfig', '-c', 'shared_preload_libraries', '-v', 'diskquota'])
+    gp_run(['gpconfig', '-c', 'shared_preload_libraries', '-v', 'diskquota-2.0.so'])
     gp_run(['gpstop', '-far'])
     for var in guc:
         gp_run('gpconfig', '-c', var, '-v', guc[var])
