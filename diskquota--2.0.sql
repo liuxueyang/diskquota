@@ -3,6 +3,8 @@
 
 CREATE SCHEMA diskquota;
 
+-- when (quotatype == NAMESPACE_QUOTA/ROLE_QUOTA) then targetOid = role_oid/schema_oid;
+-- when (quotatype == NAMESPACE_TABLESPACE_QUOTA/ROLE_TABLESPACE_QUOTA) then targetOid = diskquota.target.rowId;
 CREATE TABLE diskquota.quota_config(
 	targetOid oid,
 	quotatype int,
@@ -12,6 +14,7 @@ CREATE TABLE diskquota.quota_config(
 ) DISTRIBUTED BY (targetOid, quotatype);
 
 CREATE TABLE diskquota.target (
+  rowId serial,
 	quotatype int, --REFERENCES disquota.quota_config.quotatype,
 	primaryOid oid,
 	tablespaceOid oid, --REFERENCES pg_tablespace.oid,
