@@ -36,6 +36,9 @@ typedef enum
 	ROLE_QUOTA,
 	NAMESPACE_TABLESPACE_QUOTA,
 	ROLE_TABLESPACE_QUOTA,
+
+	NUM_QUOTA_TYPES,
+
 	/*
 	 * TABLESPACE_QUOTA
 	 * used in `quota_config` table,
@@ -45,10 +48,10 @@ typedef enum
 	 * quotatype = 4 (TABLESPACE_QUOTA)
 	 * quotalimitMB = 0 (invalid quota confined)
 	 * segratio = 1.0
+	 *
+	 * TABLESPACE_QUOTA is not a real quota currently, so we won't put it into quota_info
 	 */
 	TABLESPACE_QUOTA,
-
-	NUM_QUOTA_TYPES
 } QuotaType;
 
 typedef enum
