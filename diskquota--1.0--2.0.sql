@@ -4,7 +4,7 @@
 ALTER TABLE diskquota.quota_config ADD COLUMN segratio float4 DEFAULT 0;
 
 CREATE TABLE diskquota.target (
-  rowId serial,
+	rowId serial,
 	quotatype int, -- REFERENCES disquota.quota_config.quotatype,
 	primaryOid oid,
 	tablespaceOid oid, -- REFERENCES pg_tablespace.oid,
