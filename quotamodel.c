@@ -113,7 +113,8 @@ struct QuotaInfo quota_info[NUM_QUOTA_TYPES] = {
                                         .num_keys  = 2,
                                         .sys_cache = (Oid[]){AUTHOID, TABLESPACEOID},
                                         .map       = NULL},
-};
+        [TABLESPACE_QUOTA]           = {
+                          .map_name = "Tablespace map", .num_keys = 1, .sys_cache = (Oid[]){TABLESPACEOID}, .map = NULL}};
 
 /* global blacklist for which exceed their quota limit */
 struct BlackMapEntry
@@ -1240,23 +1241,15 @@ do_load_quotas(void)
 	        "SELECT c.targetOid, c.quotaType, c.quotalimitMB, COALESCE(c.segratio, 0) AS segratio, "
 	        "COALESCE(t.tablespaceoid, 0) AS tablespaceoid, COALESCE(t.primaryOid, 0) AS primaryoid "
 	        "FROM diskquota.quota_config AS c LEFT OUTER JOIN diskquota.target AS t "
-	        "ON ((c.targetOid = t.primaryOid AND c.quotaType IN ($1, $2)) OR (c.targetOid = t.rowId "
-	        "AND c.quotaType IN ($3, $4))) AND c.quotaType = t.quotaType "
-	        "WHERE c.quotaType <> $5",
-	        5,
+	        "ON c.targetOid = t.rowId AND c.quotaType IN ($1, $2) AND c.quotaType = t.quotaType",
+	        2,
 	        (Oid[]){
-	                INT4OID,
-	                INT4OID,
-	                INT4OID,
 	                INT4OID,
 	                INT4OID,
 	        },
 	        (Datum[]){
-	                Int32GetDatum(NAMESPACE_QUOTA),
-	                Int32GetDatum(ROLE_QUOTA),
 	                Int32GetDatum(NAMESPACE_TABLESPACE_QUOTA),
 	                Int32GetDatum(ROLE_TABLESPACE_QUOTA),
-	                Int32GetDatum(TABLESPACE_QUOTA),
 	        },
 	        NULL, true, 0);
 	if (ret != SPI_OK_SELECT)
@@ -1413,6 +1406,8 @@ prepare_blackmap_search_key(BlackMapEntry *keyitem, QuotaType type, Oid relowner
 		keyitem->targetoid = relowner;
 	else if (type == NAMESPACE_QUOTA || type == NAMESPACE_TABLESPACE_QUOTA)
 		keyitem->targetoid = relnamespace;
+	else if (type == TABLESPACE_QUOTA)
+		keyitem->targetoid = reltablespace;
 	else
 		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("[diskquota] unknown quota type: %d", type)));
 

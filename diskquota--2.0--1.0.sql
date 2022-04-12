@@ -63,7 +63,7 @@ DROP FUNCTION diskquota.show_relation_cache_all_seg();
 -- UDF end
 
 -- table part
--- clean up schema_tablespace quota, rolsize_tablespace quota AND tablespace quota
+-- clean up NAMESPACE_TABLESPACE_QUOTA(2), ROLE_TABLESPACE_QUOTA(3) and TABLESPACE_QUOTA(4)
 DELETE FROM diskquota.quota_config WHERE quotatype in (2, 3, 4);
 
 DROP TABLE diskquota.target;
