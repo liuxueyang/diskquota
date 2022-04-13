@@ -30,10 +30,12 @@ set(CMAKE_C_FLAGS_RELEASE "" CACHE
 set(CMAKE_C_FLAGS_DEBUG "-DDISKQUOTA_DEBUG"
     CACHE STRING "Flags for DEBUG build" FORCE)
 # set link flags for all sub-projects
-set(CMAKE_SHARED_LINKER_FLAGS "${PG_LD_FLAGS}")
+set(CMAKE_MODULE_LINKER_FLAGS "${PG_LD_FLAGS}")
+if (APPLE)
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -bundle_loader ${PG_BIN_DIR}/postgres")
+endif()
 # set c and ld flags for all projects
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${PG_C_FLAGS}")
-set(CMAKE_MODULE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS} ${PG_LD_FLAGS}")
 
 # generate version
 if(NOT DEFINED DISKQUOTA_VERSION)
@@ -127,12 +129,23 @@ if(DEFINED DISKQUOTA_LAST_RELEASE_PATH)
   )
 endif()
 
-set(CPACK_GENERATOR "TGZ")
-set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
-set(CPACK_PACKAGE_FILE_NAME
+set(tgz_NAME
     "diskquota-${DISKQUOTA_MAJOR_VERSION}.${DISKQUOTA_MINOR_VERSION}.${DISKQUOTA_PATCH_VERSION}-${DISTRO_NAME}_x86_64"
 )
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+set(CPACK_PACKAGE_FILE_NAME ${tgz_NAME})
 include(CPack)
+# create_artifact target is used to tar the package with version into a version-less tarball to be
+# used on concourse gcs resource. It will be uploaded to a gcs version file (no diskquota version
+# string in the file name), and be retrieved in the release step. Then we don't have to firgure out
+# a way to add the version string back to the release file name, just untar it.
+set(artifact_NAME "diskquota.tar.gz")
+add_custom_target(create_artifact
+  COMMAND
+  ${CMAKE_COMMAND} --build . --target package
+  COMMAND
+  ${CMAKE_COMMAND} -E tar cvf ${artifact_NAME} "${tgz_NAME}.tar.gz")
 # packing end
 
 # Create build-info

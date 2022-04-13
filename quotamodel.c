@@ -6,7 +6,8 @@
  * model. Disk quota related Shared memory initialization is also implemented
  * in this file.
  *
- * Copyright (c) 2018-Present Pivotal Software, Inc.
+ * Copyright (c) 2018-2020 Pivotal Software, Inc.
+ * Copyright (c) 2020-Present VMware, Inc. or its affiliates
  *
  * IDENTIFICATION
  *		diskquota/quotamodel.c
@@ -48,7 +49,7 @@
 #define MAX_LOCAL_DISK_QUOTA_BLACK_ENTRIES 8192
 #define MAX_NUM_KEYS_QUOTA_MAP 8
 /* Number of attributes in quota configuration records. */
-#define NUM_QUOTA_CONFIG_ATTRS 5
+#define NUM_QUOTA_CONFIG_ATTRS 6
 
 typedef struct TableSizeEntry      TableSizeEntry;
 typedef struct NamespaceSizeEntry  NamespaceSizeEntry;
@@ -111,7 +112,9 @@ struct QuotaInfo quota_info[NUM_QUOTA_TYPES] = {
         [ROLE_TABLESPACE_QUOTA]      = {.map_name  = "Tablespace-role map",
                                         .num_keys  = 2,
                                         .sys_cache = (Oid[]){AUTHOID, TABLESPACEOID},
-                                        .map       = NULL}};
+                                        .map       = NULL},
+        [TABLESPACE_QUOTA]           = {
+                          .map_name = "Tablespace map", .num_keys = 1, .sys_cache = (Oid[]){TABLESPACEOID}, .map = NULL}};
 
 /* global blacklist for which exceed their quota limit */
 struct BlackMapEntry
@@ -243,7 +246,8 @@ update_limit_for_quota(int64 limit, float segratio, QuotaType type, Oid *keys)
 		if (key.segid == -1)
 		{
 			entry->limit = limit;
-		} else
+		}
+		else
 		{
 			entry->limit = round((limit / SEGCOUNT) * segratio);
 		}
@@ -817,7 +821,8 @@ calculate_table_disk_usage(bool is_init, HTAB *local_active_table_stat_map)
 			{
 				reltablespace = MyDatabaseTableSpace;
 			}
-		} else
+		}
+		else
 		{
 			LWLockAcquire(diskquota_locks.relation_cache_lock, LW_SHARED);
 			DiskQuotaRelationCacheEntry *relation_entry = hash_search(relation_cache, &relOid, HASH_FIND, NULL);
@@ -1065,7 +1070,8 @@ flush_local_black_map(void)
 				ereport(WARNING, (errmsg("[diskquota] Shared disk quota black map size limit reached."
 				                         "Some out-of-limit schemas or roles will be lost"
 				                         "in blacklist.")));
-			} else
+			}
+			else
 			{
 				/* new db objects which exceed quota limit */
 				if (!found)
@@ -1080,7 +1086,8 @@ flush_local_black_map(void)
 			blackentry->segexceeded      = localblackentry->segexceeded;
 			localblackentry->isexceeded  = false;
 			localblackentry->segexceeded = false;
-		} else
+		}
+		else
 		{
 			/* db objects are removed or under quota limit in the new loop */
 			(void)hash_search(disk_quota_black_map, (void *)&localblackentry->keyitem, HASH_REMOVE, NULL);
@@ -1230,12 +1237,21 @@ do_load_quotas(void)
 	/*
 	 * read quotas from diskquota.quota_config and target table
 	 */
-	ret = SPI_execute(
+	ret = SPI_execute_with_args(
 	        "SELECT c.targetOid, c.quotaType, c.quotalimitMB, COALESCE(c.segratio, 0) AS segratio, "
-	        "COALESCE(t.tablespaceoid, 0) AS tablespaceoid "
+	        "COALESCE(t.tablespaceoid, 0) AS tablespaceoid, COALESCE(t.primaryOid, 0) AS primaryoid "
 	        "FROM diskquota.quota_config AS c LEFT OUTER JOIN diskquota.target AS t "
-	        "ON c.targetOid = t.primaryOid and c.quotaType = t.quotaType",
-	        true, 0);
+	        "ON c.targetOid = t.rowId AND c.quotaType IN ($1, $2) AND c.quotaType = t.quotaType",
+	        2,
+	        (Oid[]){
+	                INT4OID,
+	                INT4OID,
+	        },
+	        (Datum[]){
+	                Int32GetDatum(NAMESPACE_TABLESPACE_QUOTA),
+	                Int32GetDatum(ROLE_TABLESPACE_QUOTA),
+	        },
+	        NULL, true, 0);
 	if (ret != SPI_OK_SELECT)
 		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
 		                errmsg("[diskquota] load_quotas SPI_execute failed: error code %d", ret)));
@@ -1271,6 +1287,12 @@ do_load_quotas(void)
 		int64 quota_limit_mb = DatumGetInt64(vals[2]);
 		float segratio       = DatumGetFloat4(vals[3]);
 		Oid   spcOid         = DatumGetObjectId(vals[4]);
+		Oid   primaryOid     = DatumGetObjectId(vals[5]);
+
+		if (quotaType == NAMESPACE_TABLESPACE_QUOTA || quotaType == ROLE_TABLESPACE_QUOTA)
+		{
+			targetOid = primaryOid;
+		}
 
 		if (spcOid == InvalidOid)
 		{
@@ -1281,7 +1303,8 @@ do_load_quotas(void)
 				                       quotaType, quota_info[quotaType].num_keys)));
 			}
 			update_limit_for_quota(quota_limit_mb * (1 << 20), segratio, quotaType, (Oid[]){targetOid});
-		} else
+		}
+		else
 		{
 			update_limit_for_quota(quota_limit_mb * (1 << 20), segratio, quotaType, (Oid[]){targetOid, spcOid});
 		}
@@ -1312,6 +1335,29 @@ get_rel_owner_schema_tablespace(Oid relid, Oid *ownerOid, Oid *nsOid, Oid *table
 		{
 			*tablespaceoid = MyDatabaseTableSpace;
 		}
+
+		ReleaseSysCache(tp);
+	}
+	return found;
+}
+
+/*
+ * Given table oid, search for namespace and name.
+ * Memory relname points to should be pre-allocated at least NAMEDATALEN bytes.
+ */
+bool
+get_rel_name_namespace(Oid relid, Oid *nsOid, char *relname)
+{
+	HeapTuple tp;
+
+	tp         = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+	bool found = HeapTupleIsValid(tp);
+	if (found)
+	{
+		Form_pg_class reltup = (Form_pg_class)GETSTRUCT(tp);
+
+		*nsOid = reltup->relnamespace;
+		memcpy(relname, reltup->relname.data, NAMEDATALEN);
 
 		ReleaseSysCache(tp);
 	}
@@ -1360,6 +1406,8 @@ prepare_blackmap_search_key(BlackMapEntry *keyitem, QuotaType type, Oid relowner
 		keyitem->targetoid = relowner;
 	else if (type == NAMESPACE_QUOTA || type == NAMESPACE_TABLESPACE_QUOTA)
 		keyitem->targetoid = relnamespace;
+	else if (type == TABLESPACE_QUOTA)
+		keyitem->targetoid = reltablespace;
 	else
 		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("[diskquota] unknown quota type: %d", type)));
 
@@ -1744,7 +1792,8 @@ refresh_blackmap(PG_FUNCTION_ARGS)
 					break;
 				}
 			}
-		} else
+		}
+		else
 		{
 			/*
 			 * We cannot fetch the relation from syscache. It may be an uncommitted relation.

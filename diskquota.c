@@ -7,7 +7,8 @@
  * launcher process which is responsible for starting/refreshing the diskquota
  * worker processes which monitor given databases.
  *
- * Copyright (c) 2018-Present Pivotal Software, Inc.
+ * Copyright (c) 2018-2020 Pivotal Software, Inc.
+ * Copyright (c) 2020-Present VMware, Inc. or its affiliates
  *
  * IDENTIFICATION
  *		diskquota/diskquota.c
@@ -130,7 +131,8 @@ _PG_init(void)
 	{
 		ereport(ERROR, (errmsg("[diskquota] booting " DISKQUOTA_VERSION ", but " DISKQUOTA_BINARY_NAME
 		                       " not in shared_preload_libraries. abort.")));
-	} else
+	}
+	else
 	{
 		ereport(INFO, (errmsg("booting diskquota-" DISKQUOTA_VERSION)));
 	}
@@ -298,7 +300,8 @@ disk_quota_worker_main(Datum main_arg)
 			snprintf(_errmsg, sizeof(_errmsg), _errfmt, times * diskquota_naptime);
 
 			init_ps_display("bgworker:", "[diskquota]", dbname, _errmsg);
-		} else
+		}
+		else
 		{
 			init_ps_display("bgworker:", "[diskquota]", dbname,
 			                "v" DISKQUOTA_VERSION " is not matching with current SQL. stop working");
@@ -1182,7 +1185,7 @@ diskquota_status_check_soft_limit()
 	if (!found) return "paused";
 
 	// if worker booted, check 'worker_map->is_paused'
-	return paused ? "paused" : "enabled";
+	return paused ? "paused" : "on";
 }
 
 static const char *
@@ -1208,7 +1211,7 @@ diskquota_status_check_hard_limit()
 	// hard limits should also paused
 	if (found && paused && hardlimit) return "paused";
 
-	return hardlimit ? "enabled" : "disabled";
+	return hardlimit ? "on" : "off";
 }
 
 static const char *
