@@ -1551,34 +1551,34 @@ export_exceeded_error(GlobalBlackMapEntry *entry, bool skip_name)
 	switch (blackentry->targettype)
 	{
 		case NAMESPACE_QUOTA:
-			ereport(ERROR, (errcode(ERRCODE_DISK_FULL), errmsg("schema's disk space quota exceeded with name:%s",
+			ereport(ERROR, (errcode(ERRCODE_DISK_FULL), errmsg("schema's disk space quota exceeded with name: %s",
 			                                                   GetNamespaceName(blackentry->targetoid, skip_name))));
 			break;
 		case ROLE_QUOTA:
-			ereport(ERROR, (errcode(ERRCODE_DISK_FULL), errmsg("role's disk space quota exceeded with name:%s",
+			ereport(ERROR, (errcode(ERRCODE_DISK_FULL), errmsg("role's disk space quota exceeded with name: %s",
 			                                                   GetUserName(blackentry->targetoid, skip_name))));
 			break;
 		case NAMESPACE_TABLESPACE_QUOTA:
 			if (entry->segexceeded)
 				ereport(ERROR, (errcode(ERRCODE_DISK_FULL),
-				                errmsg("tablespace:%s schema:%s diskquota exceeded per segment quota",
+				                errmsg("tablespace: %s, schema: %s diskquota exceeded per segment quota",
 				                       GetTablespaceName(blackentry->tablespaceoid, skip_name),
 				                       GetNamespaceName(blackentry->targetoid, skip_name))));
 			else
 				ereport(ERROR,
-				        (errcode(ERRCODE_DISK_FULL), errmsg("tablespace:%s schema:%s diskquota exceeded",
+				        (errcode(ERRCODE_DISK_FULL), errmsg("tablespace: %s, schema: %s diskquota exceeded",
 				                                            GetTablespaceName(blackentry->tablespaceoid, skip_name),
 				                                            GetNamespaceName(blackentry->targetoid, skip_name))));
 			break;
 		case ROLE_TABLESPACE_QUOTA:
 			if (entry->segexceeded)
 				ereport(ERROR, (errcode(ERRCODE_DISK_FULL),
-				                errmsg("tablespace:%s role:%s diskquota exceeded per segment quota",
+				                errmsg("tablespace: %s, role: %s diskquota exceeded per segment quota",
 				                       GetTablespaceName(blackentry->tablespaceoid, skip_name),
 				                       GetUserName(blackentry->targetoid, skip_name))));
 			else
 				ereport(ERROR,
-				        (errcode(ERRCODE_DISK_FULL), errmsg("tablespace:%s role:%s diskquota exceeded",
+				        (errcode(ERRCODE_DISK_FULL), errmsg("tablespace: %s, role: %s diskquota exceeded",
 				                                            GetTablespaceName(blackentry->tablespaceoid, skip_name),
 				                                            GetUserName(blackentry->targetoid, skip_name))));
 			break;
@@ -1622,8 +1622,10 @@ refresh_blackmap(PG_FUNCTION_ARGS)
 	HASHCTL              hashctl;
 	int                  ret_code;
 
-	if (!superuser()) errmsg("must be superuser to update blackmap");
-
+	if (!superuser())
+		ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("must be superuser to update blackmap")));
+	if (IS_QUERY_DISPATCHER())
+		ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("\"refresh_blackmap()\" can only be executed on QE.")));
 	if (ARR_NDIM(blackmap_array_type) > 1 || ARR_NDIM(active_oid_array_type) > 1)
 		ereport(ERROR, (errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR), errmsg("1-dimensional array needed")));
 
